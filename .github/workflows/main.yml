@@ -1,0 +1,32 @@
+name: Releases
+
+on: 
+  push:
+    tags:
+    - '*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build
+      run: |
+           | cargo build --release --bins --target i686-pc-windows-msvc
+           | mv target/i686-pc-windows-msvc/wcal.exe target/wcal_i686-pc-windows-msvc.exe 
+           | cargo build --release --bins --target i686-unknown-linux-gnu
+           | ls target/i686-unknown-linux-gnu
+           | mv target/i686-unknown-linux-gnu/wcal target/wcal_i686-unknown-linux-gnu
+           | cargo build --release --bins --target x86_64-pc-windows-msvc
+           | mv target/x86_64-pc-windows-msvc/wcal.exe target/wcal_x86_64-pc-windows-msvc.exe 
+           | cargo build --release --bins --target x86_64-unknown-linux-gnu
+           | mv target/x86_64-unknown-linux-gnu/wcal target/wcal_x86_64-unknown-linux-gnu
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: "release.tar.gz,foo/*.txt"
+        bodyFile: "body.md"
+        token: ${{ secrets.GITHUB_TOKEN }}
