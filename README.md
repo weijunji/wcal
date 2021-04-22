@@ -19,9 +19,25 @@ This calculator has three steps:
 The following parser is available:
 * Top-down parser (default)
 
-For the usage of this crate, please see the [document](https://docs.rs/wcal).
+## Library Usage
+### Example
+```rust
+use wcal::{calculator, parser};
+ 
+fn main() {
+    let res: f64 = calculator!("1+2").unwrap();
+    assert_eq!(res, 3f64);
+ 
+    let res: i128 = calculator("1+2", wcal::parser::top_down_parser::parse).unwrap();
+    assert_eq!(res, 3);
+ 
+    let res: f64 = calculator("1+2", wcal::parser::top_down_parser::parse).unwrap();
+    assert_eq!(res, 3f64);
+}
+```
+For more usage of this crate, please see the [document](https://docs.rs/wcal).
 
-## Usage
+## Executable Usage
 ### Command line mode
 ```shell
 $ wcal "2*6+(1/2)" -f "2*6+(1/2)"
