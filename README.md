@@ -19,6 +19,8 @@ This calculator has three steps:
 The following parser is available:
 * Top-down parser (default)
 
+For the usage of this crate, please see the [document](https://docs.rs/wcal).
+
 ## Usage
 ### Command line mode
 ```shell
