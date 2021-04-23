@@ -85,7 +85,7 @@ checksum = "b4ae116fef2b7fea257ed6440d3cfcff7f190865f170cdad00bb6465bf18ecba"
 
 [[package]]
 name = "wcal"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "logos",
 ]
