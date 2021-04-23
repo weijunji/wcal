@@ -1,4 +1,5 @@
 # wcal
+[![Build](https://github.com/weijunji/wcal/actions/workflows/Build.yml/badge.svg)](https://github.com/weijunji/wcal/actions/workflows/Build.yml)
 [![Crates.io version shield](https://img.shields.io/crates/v/wcal.svg)](https://crates.io/crates/wcal)
 [![Docs](https://docs.rs/wcal/badge.svg)](https://docs.rs/wcal)
 [![Crates.io license shield](https://img.shields.io/crates/l/wcal.svg)](https://crates.io/crates/wcal)
