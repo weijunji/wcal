@@ -11,7 +11,7 @@ env:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v1
     - uses: actions-rs/toolchain@v1
@@ -27,5 +27,4 @@ jobs:
     - uses: ncipollo/release-action@v1
       with:
         artifacts: "target/x86_64-pc-windows-msvc/release/wcal.exe, target/x86_64-pc-windows-msvc/release/wcal.pdb"
-        bodyFile: "body.md"
         token: ${{ secrets.GITHUB_TOKEN }}
