@@ -31,8 +31,10 @@
 //! ```
 pub mod lexer;
 pub mod parser;
+pub mod generator;
 
-use parser::top_down_parser::AST;
+use parser::ast::AST;
+use generator::{calculator, calculator_f};
 
 /// Use default parser to calculate the expression.
 #[macro_export]
@@ -52,13 +54,13 @@ pub trait FromAST{
 
 impl FromAST for i128 {
     fn from_ast(ast: AST) -> i128 {
-        ast.calculate()
+        calculator::calculate(ast)
     }
 }
 
 impl FromAST for f64 {
     fn from_ast(ast: AST) -> f64 {
-        ast.calculate_f()
+        calculator_f::calculate(ast)
     }
 }
 

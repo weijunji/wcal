@@ -16,121 +16,15 @@
 //!               | <empty>
 //!
 //! <factor> ::= LP <expr> RP
-//!          | Number
-//!          | Minus <factor>
+//!            | Number
+//!            | Minus <factor>
 //! ```
 use crate::lexer::Token;
+use super::ast::*;
 
 use std::iter::Peekable;
 use std::slice::Iter;
 
-trait Calculable {
-    fn calculate_f(&self) -> f64;
-    fn calculate(&self) -> i128;
-}
-
-/// ( expr )
-struct Pair{
-    expr: Box<dyn Calculable>
-}
-
-impl Calculable for Pair{
-    fn calculate_f(&self) -> f64 {
-        self.expr.calculate_f()
-    }
-
-    fn calculate(&self) -> i128 {
-        self.expr.calculate()
-    }
-}
-
-/// lhs op rhs
-///
-/// op is `+` `-` `*` or `/`
-struct Expr{
-    lhs: Box<dyn Calculable>,
-    rhs: Box<dyn Calculable>,
-    op: Token
-}
-
-impl Calculable for Expr{
-    fn calculate_f(&self) -> f64 {
-        let lval = self.lhs.calculate_f();
-        let rval = self.rhs.calculate_f();
-        match self.op {
-            Token::Plus => lval + rval,
-            Token::Minus => lval - rval,
-            Token::Times => lval * rval,
-            Token::Division => lval / rval,
-            _ => panic!("Unknown operator")
-        }
-    }
-
-    fn calculate(&self) -> i128 {
-        let lval = self.lhs.calculate();
-        let rval = self.rhs.calculate();
-        match self.op {
-            Token::Plus => lval + rval,
-            Token::Minus => lval - rval,
-            Token::Times => lval * rval,
-            Token::Division => {
-                if rval == 0 {
-                    println!("Error: division by zero");
-                    panic!()
-                }
-                if lval % rval != 0 {
-                    println!("Warning: division will cause a cast");
-                }
-                lval / rval
-            }
-            _ => panic!("Unknown operator")
-        }
-    }
-}
-
-/// -expr
-struct Neg{
-    expr: Box<dyn Calculable>
-}
-
-impl Calculable for Neg{
-    fn calculate_f(&self) -> f64 {
-        -self.expr.calculate_f()
-    }
-
-    fn calculate(&self) -> i128 {
-        -self.expr.calculate()
-    }
-}
-
-/// number store as `u64`
-struct Number{
-    num: u64
-}
-
-impl Calculable for Number{
-    fn calculate_f(&self) -> f64 {
-        self.num as f64
-    }
-
-    fn calculate(&self) -> i128 {
-        self.num as i128
-    }
-}
-
-pub struct AST{
-    root: Box<dyn Calculable>
-}
-
-impl AST{
-    pub fn calculate_f(&self) -> f64 {
-        self.root.calculate_f()
-    }
-
-    pub fn calculate(&self) -> i128 {
-        self.root.calculate()
-    }
-}
 
 struct Parser<'a> {
     iter: Peekable<Iter<'a, Token>>
@@ -141,27 +35,27 @@ impl<'a> Parser<'a> {
         self.iter.peek().is_none()
     }
 
-    fn s(&mut self) -> Result<Box<dyn Calculable>, String> {
+    fn s(&mut self) -> Result<Expr, String> {
         self.expr()
     }
 
-    fn expr(&mut self) -> Result<Box<dyn Calculable>, String> {
+    fn expr(&mut self) -> Result<Expr, String> {
         let lhs = self.term()?;
         self.expr_tail(lhs)
     }
 
-    fn expr_tail(&mut self, lhs: Box<dyn Calculable>) -> Result<Box<dyn Calculable>, String> {
+    fn expr_tail(&mut self, lhs: Expr) -> Result<Expr, String> {
         let token = self.iter.peek();
         match token {
             Some(Token::Plus) => {
                 self.get_token("+")?;
                 let rhs = self.term()?;
-                self.expr_tail(Box::new(Expr{lhs, rhs, op: Token::Plus}))
+                self.expr_tail(BinOp::new(lhs, rhs, Token::Plus))
             }
             Some(Token::Minus) => {
                 self.get_token("-")?;
                 let rhs = self.term()?;
-                self.expr_tail(Box::new(Expr{lhs, rhs, op: Token::Minus}))
+                self.expr_tail(BinOp::new(lhs, rhs, Token::Minus))
             }
             _ => {
                 Ok(lhs)
@@ -169,23 +63,23 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn term(&mut self) -> Result<Box<dyn Calculable>, String> {
+    fn term(&mut self) -> Result<Expr, String> {
         let lval = self.factor()?;
         self.term_tail(lval)
     }
 
-    fn term_tail(&mut self, lhs: Box<dyn Calculable>) -> Result<Box<dyn Calculable>, String> {
+    fn term_tail(&mut self, lhs: Expr) -> Result<Expr, String> {
         let token = self.iter.peek();
         match token {
             Some(Token::Times) => {
                 self.get_token("*")?;
                 let rhs = self.factor()?;
-                self.term_tail(Box::new(Expr{lhs, rhs, op: Token::Times}))
+                self.term_tail(BinOp::new(lhs, rhs, Token::Times))
             }
             Some(Token::Division) => {
                 self.get_token("/")?;
                 let rhs = self.factor()?;
-                self.term_tail(Box::new(Expr{lhs, rhs, op: Token::Division}))
+                self.term_tail(BinOp::new(lhs, rhs, Token::Division))
             }
             _ => {
                 Ok(lhs)
@@ -193,20 +87,20 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn factor(&mut self) -> Result<Box<dyn Calculable>, String> {
+    fn factor(&mut self) -> Result<Expr, String> {
         let token = self.get_token("number")?;
         match token {
             Token::LP => {
                 let expr = self.expr()?;
                 self.get_token(")")?;
-                Ok(Box::new(Pair{expr}))
+                Ok(Pair::new(expr))
             }
             Token::Minus => {
                 let expr = self.factor()?;
-                Ok(Box::new(Neg{expr}))
+                Ok(Neg::new(expr))
             }
             Token::Number(num) => {
-                Ok(Box::new(Number{num}))
+                Ok(Number::new(num))
             }
             _ => {
                 Err(format!("Expect number, got {}", token))
@@ -229,11 +123,11 @@ impl<'a> Parser<'a> {
 /// ```
 /// use wcal::lexer;
 /// use wcal::parser::top_down_parser::parse;
+/// use wcal::parser::ast::*;
 ///
-/// let tokens = lexer::lexer("12+3*4/2- 2+-1").unwrap();
+/// let tokens = lexer::lexer("12+3").unwrap();
 /// let ast = parse(tokens).unwrap();
-/// assert_eq!(ast.calculate_f(), 15f64);
-/// assert_eq!(ast.calculate(), 15i128);
+/// assert_eq!(ast, AST{root: BinOp::new(Number::new(12), Number::new(3), lexer::Token::Plus)});
 /// ```
 pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
     let mut parser = Parser{
@@ -256,8 +150,7 @@ mod tests {
     fn test_add() -> Result<(), String> {
         let tokens = lexer::lexer("12+3")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 15f64);
-        assert_eq!(ast.calculate(), 15i128);
+        assert_eq!(ast, AST{root: BinOp::new(Number::new(12), Number::new(3), lexer::Token::Plus)});
         Ok(())
     }
 
@@ -265,8 +158,7 @@ mod tests {
     fn test_sub() -> Result<(), String> {
         let tokens = lexer::lexer("12-3")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 9f64);
-        assert_eq!(ast.calculate(), 9i128);
+        assert_eq!(ast, AST{root: BinOp::new(Number::new(12), Number::new(3), lexer::Token::Minus)});
         Ok(())
     }
 
@@ -274,8 +166,7 @@ mod tests {
     fn test_times() -> Result<(), String> {
         let tokens = lexer::lexer("12*3")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 36f64);
-        assert_eq!(ast.calculate(), 36i128);
+        assert_eq!(ast, AST{root: BinOp::new(Number::new(12), Number::new(3), lexer::Token::Times)});
         Ok(())
     }
 
@@ -283,99 +174,28 @@ mod tests {
     fn test_div() -> Result<(), String> {
         let tokens = lexer::lexer("12/3")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 4f64);
-        assert_eq!(ast.calculate(), 4i128);
+        assert_eq!(ast, AST{root: BinOp::new(Number::new(12), Number::new(3), lexer::Token::Division)});
         Ok(())
     }
 
-    #[test]
-    fn test_div_cast() -> Result<(), String> {
-        let tokens = lexer::lexer("7/2")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 3.5f64);
-        assert_eq!(ast.calculate(), 3i128);
-        Ok(())
-    }
 
     #[test]
     fn test_num() -> Result<(), String> {
         let tokens = lexer::lexer("12")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 12f64);
-        assert_eq!(ast.calculate(), 12i128);
+        assert_eq!(ast, AST{root: Number::new(12)});
 
         let tokens = lexer::lexer("-12")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), -12f64);
-        assert_eq!(ast.calculate(), -12i128);
+        assert_eq!(ast, AST{root: Neg::new(Number::new(12))});
         Ok(())
     }
 
     #[test]
     fn test_pair() -> Result<(), String> {
-        let tokens = lexer::lexer("(12)")?;
+        let tokens = lexer::lexer("((12))")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 12f64);
-        assert_eq!(ast.calculate(), 12i128);
-
-        let tokens = lexer::lexer("(((((((12))))))+(((1))))")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 13f64);
-        assert_eq!(ast.calculate(), 13i128);
-        Ok(())
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_div_zero(){
-        let tokens = lexer::lexer("5/0").unwrap();
-        let ast = parse(tokens).unwrap();
-        ast.calculate();
-    }
-
-    #[test]
-    fn test_div_zero_f() -> Result<(), String> {
-        let tokens = lexer::lexer("5/0")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), f64::INFINITY);
-        Ok(())
-    }
-
-    #[test]
-    fn test_neg() -> Result<(), String> {
-        let tokens = lexer::lexer("-------7-------2")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), -9f64);
-        assert_eq!(ast.calculate(), -9i128);
-
-        let tokens = lexer::lexer("-------7------2")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), -5f64);
-        assert_eq!(ast.calculate(), -5i128);
-
-        let tokens = lexer::lexer("------7------2")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), 9f64);
-        assert_eq!(ast.calculate(), 9i128);
-
-        let tokens = lexer::lexer("-(1+2)")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate_f(), -3f64);
-        assert_eq!(ast.calculate(), -3i128);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_priority() -> Result<(), String> {
-        let tokens = lexer::lexer("1+3*6/2-3*-1")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate(), 13i128);
-
-        let tokens = lexer::lexer("1+3*6/(2-3)*-1")?;
-        let ast = parse(tokens)?;
-        assert_eq!(ast.calculate(), 19i128);
-
+        assert_eq!(ast, AST{root: Pair::new(Pair::new(Number::new(12)))});
         Ok(())
     }
 
@@ -410,10 +230,32 @@ mod tests {
     }
 
     #[test]
-    fn test_one_line() -> Result<(), String> {
-        let tokens = lexer::lexer("1+3*6/2-3*-1\n-1*2")?;
+    fn test_priority() -> Result<(), String> {
+        let tokens = lexer::lexer("1+3*6")?;
         let ast = parse(tokens)?;
-        assert_eq!(ast.calculate(), 13i128);
+        assert_eq!(ast, AST{root: BinOp::new(Number::new(1), BinOp::new(Number::new(3), Number::new(6), lexer::Token::Times), lexer::Token::Plus)});
+
+        let tokens = lexer::lexer("6/(2-3)")?;
+        let ast = parse(tokens)?;
+        assert_eq!(ast, AST{root: BinOp::new(Number::new(6), Pair::new(BinOp::new(Number::new(2), Number::new(3), lexer::Token::Minus)), lexer::Token::Division)});
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_neg() -> Result<(), String> {
+        let tokens = lexer::lexer("-7--2")?;
+        let ast = parse(tokens)?;
+        assert_eq!(ast, AST{root: BinOp::new(Neg::new(Number::new(7)), Neg::new(Number::new(2)), lexer::Token::Minus)});
+
+        let tokens = lexer::lexer("---7")?;
+        let ast = parse(tokens)?;
+        assert_eq!(ast, AST{root: Neg::new(Neg::new(Neg::new(Number::new(7))))});
+
+        let tokens = lexer::lexer("-(1+2)")?;
+        let ast = parse(tokens)?;
+        assert_eq!(ast, AST{root: Neg::new(Pair::new(BinOp::new(Number::new(1), Number::new(2), lexer::Token::Plus)))});
+
         Ok(())
     }
 }
