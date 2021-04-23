@@ -38,6 +38,11 @@ fn main() {
 For more usage of this crate, please see the [document](https://docs.rs/wcal).
 
 ## Executable Usage
+### Build
+Requirement: `rust` `cargo`
+```shell
+$ cargo run build --release
+```
 ### Command line mode
 ```shell
 $ wcal "2*6+(1/2)" -f "2*6+(1/2)"
